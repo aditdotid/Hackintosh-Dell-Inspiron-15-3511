@@ -1,0 +1,35 @@
+# ============================================================
+#  File besar / hasil unduhan — tidak masuk repo
+# ============================================================
+installer/*.img
+installer/*.pkg
+installer/*.dmg
+installer/com.apple.recovery.boot/
+OpenCore-*-RELEASE.zip
+AMFIPass-*.zip
+ProperTree-master.zip
+
+# ============================================================
+#  Repo upstream (punya .git sendiri) & alat vendor
+# ============================================================
+efi/
+efi-dellku/
+hackmate/
+WhateverXe/
+GenSMBIOS/
+ProperTree-master/
+AMFIPass-v1.4.1-Mod-RELEASE/
+
+# ============================================================
+#  Snapshot backup (git sudah menggantikan fungsinya)
+# ============================================================
+backup/
+backup (Copy)/
+
+# ============================================================
+#  Sampah runtime
+# ============================================================
+__pycache__/
+*.py[cod]
+*.swp
+.DS_Store
