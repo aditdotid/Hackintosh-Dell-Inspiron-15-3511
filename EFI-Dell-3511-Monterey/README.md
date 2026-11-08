@@ -99,6 +99,9 @@ cp config-WEX.plist config.plist
 > Profil ini diambil dari laporan solved untuk laptop Tiger Lake
 > (github.com/nullmoth/1401/issues/102) — kombinasi memory-map yang salah
 > membuat kernel tidak pernah jalan.
+>
+> ✅ **TERVERIFIKASI 2026-11-07 — EFI ini berhasil boot ke macOS Recovery
+> di Dell Inspiron 15 3511 ini.**
 
 ---
 
@@ -174,7 +177,7 @@ Script akan membuat 1 partisi FAT32 2 GB berisi:
 
 | Gejala | Solusi |
 |---|---|
-| Stuck di `[EB|#LOG:EXITBS:START]` | **Sudah diperbaiki** lewat profil quirks TGL: `EnableWriteUnprotector=true`, `RebuildAppleMemoryMap=false`, `DevirtualiseMmio=false`, `ProtectUefiServices=false`. Kalau masih: cek RAM (butuh ≥8 GB untuk ramdisk 3,2 GB) |
+| Stuck di `[EB|#LOG:EXITBS:START]` | ✅ **Sudah teratasi & terverifikasi** di laptop ini dengan profil quirks TGL: `EnableWriteUnprotector=true`, `RebuildAppleMemoryMap=false`, `DevirtualiseMmio=false`, `ProtectUefiServices=false` |
 | Panic `AppleIntelTGLGraphics` | pastikan `WhateverGreen` **tidak** ada di folder Kexts |
 | Layar hitam setelah picker | tambah `-igfxvesa` sementara, atau cek DVMT |
 | Audio tidak keluar | coba `layout-id` 13 / 69 / 21 di `DeviceProperties` |

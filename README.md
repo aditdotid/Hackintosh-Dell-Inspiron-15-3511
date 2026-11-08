@@ -55,7 +55,7 @@ recovery 12.5.1 — karena itu fase instalasi memakai WhateverGreen.
 
 ## Catatan penting
 
-### 1. Freeze `[EB|LOG:EXITBS:START]`
+### 1. Freeze `[EB|LOG:EXITBS:START]` — ✅ TERATASI
 
 Penyebabnya **kombinasi quirks memory-map yang salah**, bukan firmware. Profil yang
 dipakai (terbukti pada laptop Tiger Lake lain,
@@ -68,6 +68,8 @@ DevirtualiseMmio     = false
 SetupVirtualMap      = true
 ProtectUefiServices  = false
 ```
+
+**Terverifikasi 2026-11-07:** EFI ini berhasil boot ke macOS Recovery di laptop ini.
 
 ### 2. RAM 4 GB vs ramdisk
 
