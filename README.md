@@ -1,41 +1,45 @@
 # Hackintosh — Dell Inspiron 15 3511 (Tiger Lake)
 
-EFI OpenCore + media installer untuk menjalankan **macOS Monterey 12.7.6** di
-Dell Inspiron 15 3511. Basis awal: EFI Samsung Book i3-1115G4, diadaptasi total
-ke hardware Dell.
+**English** · [Bahasa Indonesia](README.id.md)
 
-## Hardware target
+OpenCore EFI + installer media for running **macOS Monterey 12.7.6** on a
+Dell Inspiron 15 3511. Starting point: Samsung Book i3-1115G4 EFI, fully
+adapted to Dell hardware.
 
-| Komponen | Detail | Status |
+> **Status:** EFI verified to boot into macOS Recovery on this laptop (2026-11-07).
+
+## Target hardware
+
+| Component | Detail | Status |
 |---|---|---|
 | Laptop | Dell Inspiron 15 3511 (board `05PD08`, BIOS 1.48.0) | — |
 | CPU | Intel Core i3-1115G4 (Tiger Lake-UP3, 2C/4T) | ✅ |
 | iGPU | Intel UHD Graphics G4 `8086:9A78` (48 EU) | ✅ via WhateverXe |
-| RAM | 4 GB (3,6 GiB) | ⚠️ mepet — lihat catatan RAM |
+| RAM | 4 GB (3.6 GiB) | ⚠️ tight — see RAM note |
 | Storage | NVMe Lexar NM610 PRO `1d97:1202` | ✅ |
 | Audio | Realtek ALC3204 = **ALC236** `10ec:0236` | ✅ layout-id 11 |
-| WiFi/BT | Realtek RTL8821CE `10ec:c821` | ❌ tidak didukung macOS |
-| Ethernet | tidak ada | → HoRNDIS (USB tethering) |
+| WiFi/BT | Realtek RTL8821CE `10ec:c821` | ❌ unsupported by macOS |
+| Ethernet | none | → HoRNDIS (USB tethering) |
 | Touchpad | Goodix I2C HID `DELL0AB0` (`27C6:0D43`) | ✅ VoodooI2C+HID |
 
-## Struktur
+## Layout
 
 ```
-EFI-Dell-3511-Monterey/     EFI siap pakai + README lengkap
+EFI-Dell-3511-Monterey/     ready-to-use EFI + full README
   EFI/BOOT/                 BOOTx64.efi
   EFI/OC/                   config.plist, config-WEX.plist, ACPI, Kexts, Drivers
-efi-dell-3511-xe/           EFI percobaan pertama (Big Sur + WhateverXe 0.2.3)
+efi-dell-3511-xe/           first attempt (Big Sur + WhateverXe 0.2.3)
 installer/
-  tulis-ke-usb.sh           tulis image ke USB + pasang EFI
-  dmg2raw.py                konverter Apple DMG -> raw (murni Python)
-  buat-usb.sh               cara lama (folder com.apple.recovery.boot)
-build-efi.py                builder EFI dari basis Samsung
-fix-exitbs.py               patch quirks Tiger Lake + 2 varian config
+  tulis-ke-usb.sh           write image to USB + install EFI
+  dmg2raw.py                Apple DMG -> raw converter (pure Python)
+  buat-usb.sh               legacy method (com.apple.recovery.boot folder)
+build-efi.py                EFI builder from the Samsung base
+fix-exitbs.py               Tiger Lake quirk patch + 2 config variants
 ```
 
-## Versi komponen
+## Component versions
 
-| Komponen | Versi |
+| Component | Version |
 |---|---|
 | OpenCore | 1.0.7 |
 | WhateverXe | 0.7.0 |
@@ -43,22 +47,22 @@ fix-exitbs.py               patch quirks Tiger Lake + 2 varian config
 | AMFIPass | 1.4.1 Mod |
 | SMBIOS | MacBookAir9,1 |
 
-## Dua fase config
+## Two config phases
 
-| File | Fase | GPU stack | boot-args |
+| File | Phase | GPU stack | boot-args |
 |---|---|---|---|
-| `config.plist` | instalasi | WhateverGreen + VESA | `-v keepsyms=1 -igfxvesa watchdog=0 -vi2c-force-polling alcid=11` |
-| `config-WEX.plist` | setelah 12.7.6 terpasang | WhateverXe + AMFIPass | `-v -allow3d -disablegfxfirmware -igfxdvmt keepsyms=1 -amfipassbeta` |
+| `config.plist` | installation | WhateverGreen + VESA | `-v keepsyms=1 -igfxvesa watchdog=0 -vi2c-force-polling alcid=11` |
+| `config-WEX.plist` | after 12.7.6 is installed | WhateverXe + AMFIPass | `-v -allow3d -disablegfxfirmware -igfxdvmt keepsyms=1 -amfipassbeta` |
 
-WhateverXe hanya mendukung build tertentu (Monterey **12.7.6**), sedangkan image
-recovery 12.5.1 — karena itu fase instalasi memakai WhateverGreen.
+WhateverXe only supports specific builds (Monterey **12.7.6**), while the
+recovery image is 12.5.1 — that is why the installation phase uses WhateverGreen.
 
-## Catatan penting
+## Important notes
 
-### 1. Freeze `[EB|LOG:EXITBS:START]` — ✅ TERATASI
+### 1. Freeze at `[EB|LOG:EXITBS:START]` — ✅ SOLVED
 
-Penyebabnya **kombinasi quirks memory-map yang salah**, bukan firmware. Profil yang
-dipakai (terbukti pada laptop Tiger Lake lain,
+The cause was a **wrong combination of memory-map quirks**, not a firmware
+limitation. The profile used (proven on another Tiger Lake laptop,
 [nullmoth/1401#102](https://github.com/nullmoth/1401/issues/102)):
 
 ```
@@ -69,50 +73,51 @@ SetupVirtualMap      = true
 ProtectUefiServices  = false
 ```
 
-**Terverifikasi 2026-11-07:** EFI ini berhasil boot ke macOS Recovery di laptop ini.
+**Verified 2026-11-07:** this EFI boots into macOS Recovery on this laptop.
 
-### 2. RAM 4 GB vs ramdisk
+### 2. 4 GB RAM vs ramdisk
 
-`BaseSystem.dmg` butuh **ramdisk 3,0 GiB**. Dengan RAM 3,6 GiB kernel tidak kebagian
-memori → berhenti di `EXITBS:START`. Solusinya: boot dari **partisi disk**
-(`installer/BaseSystem-3.0GiB.img`), bukan dari DMG.
+`BaseSystem.dmg` expands to a **3.0 GiB ramdisk**, which is very tight on a
+3.6 GiB machine. If you hit memory-related failures, boot the recovery from a
+**disk partition** instead (`installer/BaseSystem-3.0GiB.img`) — no ramdisk involved.
 
-### 3. Full installer offline
+### 3. Full offline installer
 
-Tidak bisa dibuat dari Linux. `SharedSupport.dmg` di dalam `InstallAssistant.pkg`
-hanya berisi volume payload (`com_apple_MobileAsset_MacSoftwareUpdate`) **tanpa
-`boot.efi`**. Yang menggabungkan BaseSystem + payload adalah `createinstallmedia`
-(macOS saja).
+Cannot be built from Linux. `SharedSupport.dmg` inside `InstallAssistant.pkg`
+only contains a payload volume (`com_apple_MobileAsset_MacSoftwareUpdate`)
+**without `boot.efi`**. Combining BaseSystem + payload into a bootable installer
+is what `createinstallmedia` does, and it exists on macOS only.
 
-## Alur pakai singkat
+## Quick start
 
 ```bash
-# 1. tulis image recovery ke USB (>= 4 GB)
+# 1. write recovery image to USB (>= 4 GB)
 cd installer
 sudo bash tulis-ke-usb.sh BaseSystem-3.0GiB.img /dev/sdX
 
 # 2. BIOS: Secure Boot OFF, SATA AHCI, Fast Boot Thorough
 # 3. F12 -> boot USB -> OpenCore -> "macOS Base System"
-# 4. Disk Utility -> erase APFS -> Reinstall macOS Monterey (butuh internet / USB tethering)
-# 5. setelah masuk desktop: salin EFI ke partisi EFI SSD
-# 6. tukar config.plist <- config-WEX.plist, lalu install WhateverXe-Graphics-0.4.0.pkg
+# 4. Disk Utility -> erase the target partition as APFS -> Reinstall macOS Monterey
+#    (needs internet / USB tethering)
+# 5. once on the desktop: copy EFI to the SSD EFI partition
+# 6. swap config.plist <- config-WEX.plist, then install WhateverXe-Graphics-0.4.0.pkg
 ```
 
-Detail lengkap ada di `EFI-Dell-3511-Monterey/README.md`.
+Full details: `EFI-Dell-3511-Monterey/README.md`.
 
-## Yang tidak di-track repo ini
+## Not tracked by this repo
 
-| Item | Ukuran | Alasan |
+| Item | Size | Reason |
 |---|---|---|
-| `installer/*.img` | 3,0 GB | image biner, dibuat ulang via `dmg2raw.py` |
-| `installer/com.apple.recovery.boot/` | 627 MB | hasil `macrecovery.py` |
-| `installer/*.pkg` | 91 MB | paket rilis pihak ketiga |
-| `efi/`, `efi-dellku/`, `hackmate/`, `WhateverXe/`, `GenSMBIOS/` | ~1 GB | repo upstream, punya `.git` sendiri |
-| `backup/`, `backup (Copy)/` | 71 MB | snapshot, digantikan riwayat git |
+| `installer/*.img` | 3.0 GB | binary image, rebuilt with `dmg2raw.py` |
+| `installer/com.apple.recovery.boot/` | 627 MB | output of `macrecovery.py` |
+| `installer/*.pkg` | 91 MB | third-party release packages |
+| `efi/`, `efi-dellku/`, `hackmate/`, `WhateverXe/`, `GenSMBIOS/` | ~1 GB | upstream repos with their own `.git` |
+| `backup/`, `backup (Copy)/` | 71 MB | snapshots, superseded by git history |
 
-## Kredit
+## Credits
 
 - [WhateverXe](https://github.com/b00t0x/WhateverXe) & [WhateverXe Graphics](https://github.com/b00t0x/WhateverXe-Graphics)
 - [OpenCore](https://github.com/acidanthera/OpenCorePkg)
-- EFI basis: [cost-12/Hackintosh-Samsung-Book-INTEL-CORE-I3-1115G4-11TH](https://github.com/cost-12/Hackintosh-Samsung-Book-INTEL-CORE-I3-1115G4-11TH)
+- Base EFI: [cost-12/Hackintosh-Samsung-Book-INTEL-CORE-I3-1115G4-11TH](https://github.com/cost-12/Hackintosh-Samsung-Book-INTEL-CORE-I3-1115G4-11TH)
 - [Dortania OpenCore Install Guide](https://dortania.github.io/OpenCore-Install-Guide/)

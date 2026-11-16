@@ -1,0 +1,232 @@
+# EFI Hackintosh — Dell Inspiron 15 3511
+
+[English](README.md) · **Bahasa Indonesia**
+
+**Target OS:** macOS **Monterey 12.7.6**
+**OpenCore:** 1.0.7 · **WhateverXe:** 0.7.0 + WhateverXe Graphics 0.4.0
+**Basis:** EFI Samsung Book i3-1115G4 (cost-12) — sudah diadaptasi ke hardware Dell ini
+
+> ✅ **Terverifikasi 2026-11-07:** EFI ini berhasil boot ke macOS Recovery di laptop ini.
+
+---
+
+## 1. Hardware terdeteksi
+
+| Komponen | Detail | Status di macOS |
+|---|---|---|
+| Laptop | Dell Inspiron 15 3511 (`05PD08`) | — |
+| BIOS | Dell 1.48.0 | — |
+| CPU | Intel Core i3-1115G4 (Tiger Lake-UP3, 2C/4T) | ✅ native |
+| iGPU | Intel UHD Graphics G4 `[8086:9A78]`, 48 EU | ✅ **akselerasi via WhateverXe** |
+| RAM | 4 GB (3,6 GiB) | ⚠️ mepet — lihat bagian 8 |
+| Storage | NVMe Lexar NM610 PRO `[1d97:1202]` | ✅ (NVMeFix) |
+| Audio | Realtek ALC3204 = **ALC236** `[10ec:0236]` | ✅ layout-id **11** |
+| Ethernet | **tidak ada** | — (driver dihapus) |
+| WiFi/BT | Realtek RTL8821CE `[10ec:c821]` | ❌ tidak didukung macOS |
+| Keyboard | PS/2 | ✅ VoodooPS2 |
+| Touchpad | Goodix I2C HID (`DELL0AB0`, `27C6:0D43`) | ✅ VoodooI2C + VoodooI2CHID |
+| Webcam | Microdia USB 0c45:6d1a | ✅ UVC native |
+| Card reader | tidak ada | — |
+
+---
+
+## 2. Yang diubah dari EFI Samsung
+
+### Dihapus (khusus Samsung / tidak relevan)
+- **ACPI:** `DSDT.aml`, `facp.aml`, `mcfg.aml`, `nhlt.aml`, `ssdt_data.aml`, `ssdtCPU*`, `ssdtTGLU6`, `ssdtTCSS5`, `ssdtSEC8`, `ssdtTHER7`, `ssdtPM_REF*`, `ssdtADEB11`, `ssdtIgfx4`, `ssdtDPTF2`, `ssdtsleep3`, `ssdtRHUB10`, `ssdtTypeC9`
+- **`SSDT-VOLKEYSS.aml`** → dihapus (sesuai permintaan; tombol volume Samsung)
+- **`SSDT-SMSG.aml`** → dihapus (sesuai permintaan; SMBus khusus Samsung)
+- **`SSDT-TPD0` / `SSDT-FPDT` / `SSDT-ALS0`** → touchpad, fingerprint, dan sensor cahaya Samsung
+- **Kext:** `RealtekRTL8111` (tidak ada ethernet), semua `AirportItlwm*`, `AirportBrcmFixup`, `BrcmFirmwareData`, `BrcmPatchRAM3`, `BlueToolFixup`, `IntelBluetooth*`, `IntelBTPatcher`, `IO80211FamilyLegacy`, `IOSkywalkFamily`, `NootedBlue`, `WhateverGreen` (pada fase WEX), `CtlnaAHCIPort`, `EmeraldSDHC`, `SMCSuperIO`, `SMCLightSensor`, `HibernationFixup`, `FeatureUnlock`, `NoTouchID`, `USBWakeFixup`, `SystemProfilerMemoryFixup`, `ForgedInvariant`, `HWPEnabler`, `DisplayMergeNub`, `EFICheckDisabler`, `XHCI-unsupported`
+- **DeviceProperties** Samsung: spoof WiFi BCM4360, EDID panel Samsung, OZ711 SD reader, model string Samsung
+
+### Ditambah / diganti
+- **WhateverXe 0.7.0** menggantikan WhateverGreen (Tiger Lake Xe-LP)
+- **AMFIPass 1.4.1 Mod** (wajib untuk root patch WEX)
+- **HoRNDIS** aktif — pengganti ethernet (USB tethering HP Android)
+- **SSDT-PNLF versi Dell** (backlight)
+- **layout-id 11** untuk ALC236
+- **DVMT 60 MB workaround**: `-igfxdvmt` + `framebuffer-stolenmem`
+- **SMBIOS baru**: `MacBookAir9,1` (2-core, paling dekat dengan i3-1115G4)
+- **ACPI patch** dibersihkan: hanya `_OSI→XOSI`, `GPRW→XPRW`, `HDAS→HDEF`
+
+---
+
+## 3. SMBIOS yang sudah digenerate
+
+| Field | Nilai |
+|---|---|
+| SystemProductName | `MacBookAir9,1` |
+| SystemSerialNumber | `FVFDV0L2MNHP` |
+| MLB | `FVF051700GU0000JA` |
+| SystemUUID | `E5840D9F-EF63-4C05-9DD9-323614F41952` |
+| ROM | `e2b26d551c41` (MAC WiFi laptop ini) |
+
+> Serial di atas digenerate dengan `macserial` (OpenCore 1.0.7) dan checksum MLB valid.
+> Kalau mau generate ulang: `./macserial -m MacBookAir9,1 -n 1`, lalu ganti 4 field itu
+> di `PlatformInfo > Generic`.
+
+---
+
+## 4. Dua fase config
+
+EFI ini punya **2 config** karena WhateverXe hanya jalan di macOS **12.7.6**,
+sedangkan image recovery-nya 12.5.1.
+
+| File | Dipakai kapan | GPU stack | boot-args |
+|---|---|---|---|
+| `config.plist` | **fase instalasi** (sekarang aktif) | WhateverGreen + VESA | `-v keepsyms=1 -igfxvesa watchdog=0 -vi2c-force-polling alcid=11` |
+| `config-WEX.plist` | **setelah macOS 12.7.6 terpasang** | WhateverXe + AMFIPass | `-v -allow3d -disablegfxfirmware -igfxdvmt keepsyms=1 -amfipassbeta` |
+
+Cara pindah fase (dari Linux, USB terpasang):
+```bash
+cd /run/media/$USER/<USB>/EFI/OC
+cp config.plist config-installer-backup.plist
+cp config-WEX.plist config.plist
+```
+
+| Arg | Fungsi |
+|---|---|
+| `-igfxvesa` | pakai framebuffer VESA (tanpa akselerasi) — cukup untuk instalasi |
+| `-allow3d` | **wajib WEX** — aktifkan jalur 3D driver Apple |
+| `-disablegfxfirmware` | **wajib WEX** — matikan loading firmware GPU |
+| `-igfxdvmt` | DVMT Dell terkunci 60 MB |
+| `-vi2c-force-polling` | bantu VoodooI2C kalau interupsi tidak jalan |
+| `watchdog=0` | matikan watchdog panic |
+| `keepsyms=1` | simbol kernel saat panic (debug) |
+
+`csr-active-config = 03080000` (0x803) — wajib untuk root patch WEX.
+
+> **Quirks penting (fix freeze `[EB|LOG:EXITBS:START]`):**
+> `EnableWriteUnprotector=true`, `RebuildAppleMemoryMap=false`,
+> `DevirtualiseMmio=false`, `SetupVirtualMap=true`, `ProtectUefiServices=false`.
+> Profil ini diambil dari laporan solved untuk laptop Tiger Lake
+> (github.com/nullmoth/1401/issues/102) — kombinasi memory-map yang salah
+> membuat kernel tidak pernah jalan.
+>
+> ✅ **TERVERIFIKASI 2026-11-07 — EFI ini berhasil boot ke macOS Recovery
+> di Dell Inspiron 15 3511 ini.**
+
+---
+
+## 5. Langkah instalasi
+
+### 5.1 BIOS (F2 saat nyala)
+- **Secure Boot** → Disabled
+- **SATA Operation** → AHCI
+- **Fast Boot** → Thorough
+- **Virtualization** → Enabled (opsional)
+- Simpan & exit
+
+### 5.2 Buat USB (dari Linux)
+```bash
+cd /home/ditzz/Documents/project/efi-dell-3511/installer
+sudo bash tulis-ke-usb.sh BaseSystem-3.0GiB.img /dev/sdX    # USB >= 4 GB
+```
+Cek dulu device-nya: `lsblk -o NAME,SIZE,TYPE,MODEL`
+
+Image sudah berisi GPT sendiri: partisi 1 = **EFI (FAT32 200 MB)**, partisi 2 =
+volume HFS+ recovery. Skrip menulis image, memperbaiki backup GPT, lalu menyalin
+`EFI/` ke partisi EFI.
+
+> Alternatif lama: `sudo bash buat-usb.sh /dev/sdX` membuat partisi FAT32 biasa
+> dan menyalin `EFI/` + `com.apple.recovery.boot/`. Cara itu memuat DMG ke ramdisk.
+
+### 5.3 Boot installer
+1. F12 → pilih USB (mode **UEFI**)
+2. Picker OpenCore → pilih **macOS Recovery** / **macOS Base System** (Monterey **12.5.1 / 21G83**)
+3. Recovery butuh internet untuk mengunduh macOS 12.7.6 (±12 GB):
+   - colok HP Android → aktifkan **USB Tethering**
+   - HoRNDIS akan muncul sebagai interface Ethernet
+4. `Disk Utility` → **erase hanya partisi target / ruang kosong** sebagai **APFS** (GUID)
+5. `Reinstall macOS Monterey` → pilih volume itu → tunggu
+
+> ⚠️ **Jangan erase seluruh disk.** Di mesin dual-boot itu menghapus Fedora dan
+> Windows. Sediakan ruang kosong dulu (shrink partisi), baru erase partisi baru itu.
+
+> Installer akan menarik versi **12.7.6 (21G1320)** dari katalog Apple — itu versi
+> yang dibutuhkan WhateverXe. Setelah selesai, cek → About This Mac.
+> Kalau ternyata masih 12.5.1, jalankan **System Update** ke 12.7.6 dulu
+> **sebelum** memasang WhateverXe Graphics.
+
+### 5.4 Setelah macOS terpasang
+1. Boot lagi dari USB, lalu salin EFI ke partisi EFI SSD:
+   ```bash
+   diskutil list                     # cari disk0s1 (EFI)
+   sudo diskutil mount disk0s1
+   cp -R /Volumes/OC-INSTALLER/EFI /Volumes/EFI/
+   ```
+2. **WAJIB untuk akselerasi GPU** — pasang paket grafis:
+   ```
+   buka WhateverXe-Graphics-0.4.0.pkg dari USB → install → restart
+   ```
+   Setelah restart: Metal, OpenGL, decode H.264/HEVC, HDMI, brightness aktif.
+
+---
+
+## 6. Yang belum jalan / catatan
+
+| Fitur | Status |
+|---|---|
+| WiFi RTL8821CE | ❌ tidak ada driver. Pakai USB tethering, dongle WiFi USB, atau ganti kartu ke Intel AX210/Broadcom |
+| Bluetooth RTL8821CE | ❌ tidak didukung |
+| Sleep/wake | ⚠️ belum teruji penuh (WEX: system sleep masih riset) |
+| iMessage/FaceTime | ⚠️ butuh serial valid + Apple ID (di luar cakupan EFI) |
+| Sidecar/AirPlay ke Mac | ❌ butuh WiFi |
+| HDMI | ✅ setelah root patch WEX |
+| Brightness Fn | ✅ SSDT-PNLF + BrightnessKeys (setelah root patch) |
+
+---
+
+## 7. Troubleshooting
+
+| Gejala | Solusi |
+|---|---|
+| Stuck di `[EB|#LOG:EXITBS:START]` | ✅ **Sudah teratasi & terverifikasi** di laptop ini dengan profil quirks TGL: `EnableWriteUnprotector=true`, `RebuildAppleMemoryMap=false`, `DevirtualiseMmio=false`, `ProtectUefiServices=false` |
+| Panic `AppleIntelTGLGraphics` | pastikan `WhateverGreen` **tidak** aktif di folder Kexts |
+| Layar hitam setelah picker | tambah `-igfxvesa` sementara, atau cek DVMT |
+| Audio tidak keluar | coba `layout-id` 13 / 69 / 21 di `DeviceProperties` |
+| Trackpad tidak jalan | Touchpad = **Goodix I2C HID** (`DELL0AB0`, `27C6:0D43`). Cek `SSDT-XOSI` + patch `_OSI→XOSI` aktif, `VoodooI2C` + `VoodooI2CHID` enabled. Kalau tetap gagal, coba `force-polling` di `DeviceProperties` I2C0, atau fallback `VoodooPS2Mouse.kext` (mode PS/2) |
+| Touchpad jalan tapi tidak ada klik | aktifkan `VoodooI2CHID` (sudah aktif) + cek `force-polling` |
+| USB mati setelah install | mapping ulang pakai USBToolBox, aktifkan `USBMap.kext` |
+
+---
+
+## 8. Media installer
+
+Dua pilihan, keduanya di folder `installer/`:
+
+| Media | Ukuran | USB minimal | Isi | Install |
+|---|---|---|---|---|
+| `BaseSystem-3.0GiB.img` | 3,0 GiB | **4 GB** | volume recovery Monterey 12.5.1 (bootable, boot dari disk) | online (unduh ±12 GB) |
+| `com.apple.recovery.boot/` | 653 MB | **1 GB** | recovery sama, dimuat ke **ramdisk 3,0 GiB** | online |
+
+```bash
+cd /home/ditzz/Documents/project/efi-dell-3511/installer
+sudo bash tulis-ke-usb.sh BaseSystem-3.0GiB.img /dev/sdX
+```
+
+> **Pilih yang mana?** `.img` mem-boot recovery langsung dari partisi disk, jadi
+> tidak ada ramdisk yang dialokasikan — berguna di mesin 4 GB ini, karena ramdisk
+> 3,0 GiB menyisakan memori sangat sedikit untuk kernel.
+
+> **Full installer offline:** tidak bisa dibuat dari Linux. Sudah diperiksa isi
+> `InstallAssistant.pkg` (produk Apple `062-40406`): `SharedSupport.dmg` di dalamnya
+> hanya berisi volume *payload* (`com_apple_MobileAsset_MacSoftwareUpdate`)
+> **tanpa `boot.efi`** — bukan volume bootable. Yang menggabungkan BaseSystem +
+> payload menjadi installer bootable adalah `createinstallmedia`, dan itu **hanya
+> ada di macOS**. File `InstallAssistant-Monterey-12.7.6.pkg` (12,4 GB) diarsipkan
+> terpisah kalau nanti ada akses ke Mac / VM macOS.
+
+Asal-usul image (untuk reproduksi):
+- `BaseSystem-3.0GiB.img` ← `macrecovery.py` (Monterey 12.5.1, build 21G83,
+  terverifikasi 63/63 chunk chunklist Apple) → `dmg2raw.py`
+
+---
+
+## 9. Referensi
+- WhateverXe — https://github.com/b00t0x/WhateverXe (0.7.0, dukung Monterey 12.7.6)
+- WhateverXe Graphics — https://github.com/b00t0x/WhateverXe-Graphics
+- EFI basis Samsung — https://github.com/cost-12/Hackintosh-Samsung-Book-INTEL-CORE-I3-1115G4-11TH
+- Dortania OpenCore Guide — https://dortania.github.io/OpenCore-Install-Guide/
+- OpenCore 1.0.7 — https://github.com/acidanthera/OpenCorePkg
